@@ -152,7 +152,7 @@ table.g td select{width:auto;padding:4px;max-width:130px}.tw{color:var(--no);fon
   <div id="pC" class="hide">
    <div class="card"><strong>Teacher accounts</strong> <small>(a teacher sees and edits only the sections and subjects assigned here; leave Password blank when editing to keep it)</small>
     <div class="row"><div><label>Full name</label><input id="uN"></div><div><label>Username</label><input id="uU"></div><div><label>Password (min 6)</label><input id="uP" type="password"></div>
-    <div><label>Sections handled (Grade-Section, comma-separated)</label><input id="uS" placeholder="8-Rizal, 7-Mabini"></div><div><label>Advisory section</label><input id="uA" placeholder="8-Rizal"></div><div><label>Subjects (blank = all)</label><input id="uJ" placeholder="Mathematics, Science"></div></div>
+    <div><label>Sections handled (Grade-Section, comma-separated)</label><input id="uS" placeholder="8-Rizal, 7-Mabini"><div id="uSp" style="margin-top:6px"></div><small>Click a section to add or remove it (sections come from the learners already encoded).</small></div><div><label>Advisory section</label><input id="uA" placeholder="8-Rizal"></div><div><label>Subjects (blank = all)</label><input id="uJ" placeholder="Mathematics, Science"></div></div>
     <button class="btn" id="uAdd">Save account</button><div id="um" class="msg"></div></div>
    <div class="card"><div class="sc"><table id="tu"></table></div></div>
    <div class="card"><strong>Admin Officer account</strong><div class="row"><div><label>Username</label><input id="adU"></div><div><label>New password (min 6)</label><input id="adP" type="password"></div></div><button class="btn alt" id="adS">Update admin account</button><div id="am2" class="msg"></div></div>
@@ -704,7 +704,7 @@ function tab(w){show(["vS","vA"],w==="S"?"vS":"vA");["S","A","O"].forEach(functi
   var su=pr==="admin"&&needSetup;$("lt").textContent=su?"First-time setup: create the Admin Officer account":(pr==="admin"?"Admin Officer login":"Teacher login");$("al").textContent=su?"Create account":"Log in";$("cfw").classList.toggle("hide",!su);$("apc").value="";
   $("dh").textContent=su?"Choose a username and a password of at least 6 characters. Keep them safe: this account manages all data.":(pr==="admin"?"":"Use the account created by the Admin Officer.");$("au").value="";$("ap").value="";$("am").textContent=""}}
 function applyRole(){var t=isT();$("tp").classList.add("hide");document.body.classList.toggle("np",ses.role!=="admin");resetK();show(["lock","panel"],"panel");
- $("who").textContent=t?curT().n+" · Teacher":"Admin Officer · "+ses.id;
+ $("who").textContent=t?curT().n+" · Teacher · Sections: "+((curT().sec||[]).join(", ").replace(/\|/g,"-")||"none assigned yet (ask the Admin Officer)"):"Admin Officer · "+ses.id;
  ["sC","xl","rst","rpr","psv","ppr","mvA"].forEach(function(i){$(i).classList.toggle("hide",t)});$("head").disabled=t;$("sch").disabled=t;$("rep").contentEditable=!t;
  var gc=document.querySelectorAll("#pG .card");if(gc[1])gc[1].classList.toggle("hide",t);
  sub("M");renderM();bump()}
@@ -720,7 +720,12 @@ $("rPb").onclick=function(){var l=$("rL").value.trim(),p=$("rP").value;
  db.st[l].ph=sha(l+":"+p);save();$("rL").value=$("rP").value="";msg("PIN reset for "+db.st[l].n,true)};
 function sec2(x){x=x.trim();var i=x.indexOf("-");return i>0?x.slice(0,i).trim()+"|"+x.slice(i+1).trim():""}
 function um(t,ok){$("um").className="msg "+(ok?"ok":"err");$("um").textContent=t}
-function renderC(){$("adU").value=db.admin.u;
+function secPick(){var ks={};Object.keys(db.st).forEach(function(k){ks[db.st[k].gr+"-"+db.st[k].se]=1});
+ var cur=$("uS").value.split(",").map(function(x){return x.trim()}).filter(Boolean),all=Object.keys(ks).sort(function(a,b){return parseInt(a)-parseInt(b)||a.localeCompare(b)});
+ $("uSp").innerHTML=all.length?all.map(function(x){return"<button type='button' class='btn "+(cur.indexOf(x)>-1?"":"alt ")+"sm' data-sp='"+esc(x)+"' style='margin:2px'>"+esc(x)+"</button>"}).join(""):"<small>No learners encoded yet. Type the sections manually.</small>"}
+$("uSp").onclick=function(e){var x=e.target.getAttribute("data-sp");if(!x)return;var cur=$("uS").value.split(",").map(function(y){return y.trim()}).filter(Boolean),i=cur.indexOf(x);if(i>-1)cur.splice(i,1);else cur.push(x);$("uS").value=cur.join(", ");secPick()};
+$("uS").oninput=secPick;
+function renderC(){secPick();$("adU").value=db.admin.u;
  $("tu").innerHTML="<tr><th class='l'>Name</th><th>Username</th><th class='l'>Sections</th><th>Advisory</th><th class='l'>Subjects</th><th></th></tr>"+Object.keys(db.users).map(function(u){var x=db.users[u];
   return"<tr><td class='l'>"+esc(x.n)+"</td><td>"+esc(u)+"</td><td class='l'>"+esc((x.sec||[]).join(", ").replace(/\|/g,"-"))+"</td><td>"+esc((x.adv||"–").replace("|","-"))+"</td><td class='l'>"+(x.subs?esc(x.subs.map(function(i){return db.subj[i]}).join(", ")):"All")+"</td><td><button class='btn alt sm' data-e='"+esc(u)+"'>Edit</button> <button class='btn alt sm' data-x='"+esc(u)+"'>Delete</button></td></tr>"}).join("")}
 $("uAdd").onclick=function(){var n=$("uN").value.trim(),u=$("uU").value.trim().toLowerCase(),p=$("uP").value,ex=db.users[u];
@@ -734,7 +739,7 @@ $("uAdd").onclick=function(){var n=$("uN").value.trim(),u=$("uU").value.trim().t
  ["uN","uU","uP","uS","uA","uJ"].forEach(function(i){$(i).value=""});um("Saved: "+n,true);renderC()};
 $("tu").onclick=function(e){var x=e.target.getAttribute("data-x"),d=e.target.getAttribute("data-e");
  if(x&&confirm("Delete the account of "+db.users[x].n+"?")){delete db.users[x];save();renderC()}
- if(d){var t=db.users[d];$("uN").value=t.n;$("uU").value=d;$("uP").value="";$("uS").value=(t.sec||[]).join(", ").replace(/\|/g,"-");$("uA").value=(t.adv||"").replace("|","-");$("uJ").value=t.subs?t.subs.map(function(i){return db.subj[i]}).join(", "):""}};
+ if(d){var t=db.users[d];$("uN").value=t.n;$("uU").value=d;$("uP").value="";$("uS").value=(t.sec||[]).join(", ").replace(/\|/g,"-");secPick();$("uA").value=(t.adv||"").replace("|","-");$("uJ").value=t.subs?t.subs.map(function(i){return db.subj[i]}).join(", "):""}};
 $("adS").onclick=function(){var u=$("adU").value.trim().toLowerCase(),p=$("adP").value,m=$("am2");m.className="msg err";
  if(!/^[a-z0-9._-]{3,}$/.test(u)||p.length<6){m.textContent="Username (3+ chars) and password (6+ chars) required.";return}
  if(db.users[u]){m.textContent="Username already used by a teacher.";return}
